@@ -1,0 +1,25 @@
+{
+  "name": "pixel-packs",
+  "version": "0.0.0",
+  "author": "icedevera",
+  "private": true,
+  "scripts": {
+    "dev": "yarn workspace pixel-packs-frontend dev",
+    "build": "yarn workspace pixel-packs-frontend build",
+    "start": "yarn workspace pixel-packs-frontend start",
+    "chain": "yarn workspace pixel-packs-hardhat chain",
+    "deploy": "yarn workspace pixel-packs-hardhat deploy",
+    "compile": "yarn workspace pixel-packs-hardhat compile"
+  },
+  "workspaces": {
+    "packages": [
+      "packages/*"
+    ],
+    "nohoist": [
+      "**/hardhat",
+      "**/hardhat/**",
+      "**/frontend",
+      "**/frontend/**"
+    ]
+  }
+}

@@ -1,0 +1,100 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+.vscode
+
+.secret
+.infuraid
+config.js
+artifacts
+
+.env.*
+.env
+.secret
+
+# dependencies
+/node_modules
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# yarn
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+# Optional eslint cache
+.eslintcache
+
+# TypeScript v1 declaration files
+typings/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional npm cache directory
+.npm
+
+# Yarn Integrity file
+.yarn-integrity
+
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# local env files
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*
+
+secret
+.secret
+
+# vercel
+.vercel
+
+#Hardhat files
+cache
+artifacts
+
+## Frontend Files ##
+# testing
+packages/frontend/coverage
+packages/react-app
+packages/subgraph
+# next.js
+packages/frontend/.next/
+packages/frontend/out/
+# production
+packages/frontend/build
+# contracts
+# packages/frontend/artifacts/*
