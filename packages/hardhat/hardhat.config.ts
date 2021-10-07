@@ -20,12 +20,7 @@ const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY;
 export const config: HardhatUserConfig = {
   defaultNetwork: "hardhat",
   networks: {
-    hardhat: {
-      // // If you want to do some forking, uncomment this
-      // forking: {
-      //   url: MAINNET_RPC_URL
-      // }
-    },
+    hardhat: {},
     localhost: {},
     rinkeby: {
       url: RINKEBY_RPC_URL,
@@ -61,7 +56,14 @@ export const config: HardhatUserConfig = {
       default: 1,
     },
   },
-  solidity: "0.8.9",
+  solidity: {
+    compilers: [
+      { version: "0.8.9" },
+      { version: "0.7.0" },
+      { version: "0.6.6" },
+      { version: "0.4.24" },
+    ],
+  },
   mocha: {
     timeout: 100000,
   },
