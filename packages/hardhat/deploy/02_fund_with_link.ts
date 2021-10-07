@@ -1,11 +1,9 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
-import { ethers } from "ethers";
-import networkConfig, { getNetworkIdFromName } from "../helper-hardhat-config";
+import { networkConfig, getNetworkIdFromName } from "../helper-hardhat-config";
 
 const fundWithLink: DeployFunction = async function ({
   deployments,
-  getNamedAccounts,
   getChainId,
   ethers,
   network,
@@ -13,6 +11,7 @@ const fundWithLink: DeployFunction = async function ({
   const { deploy, log, get } = deployments;
   const chainId = await getChainId();
 
+  log("Funding contract with LINK...");
   const PixelPackFactory = await get("PixelPackFactory");
 
   const accounts = await ethers.getSigners();
@@ -37,8 +36,10 @@ const fundWithLink: DeployFunction = async function ({
   );
   let fund_tx = await linkToken.transfer(PixelPackFactory.address, fundAmount);
   await fund_tx.wait(1);
+
+  log("Funded contract with configured LINK amount");
 };
 
 export default fundWithLink;
 
-fundWithLink.tags = ["all", "fundLink"];
+fundWithLink.tags = ["all", "fundLink", "fundOnly"];

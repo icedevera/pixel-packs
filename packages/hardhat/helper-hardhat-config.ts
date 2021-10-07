@@ -1,4 +1,4 @@
-const networkConfig = {
+export const networkConfig = {
   "31337": {
     name: "localhost",
     keyHash:

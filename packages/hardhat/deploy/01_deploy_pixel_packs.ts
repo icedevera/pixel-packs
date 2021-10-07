@@ -1,6 +1,6 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
-import networkConfig from "../helper-hardhat-config";
+import { networkConfig } from "../helper-hardhat-config";
 
 const deployPixelPacks: DeployFunction = async function ({
   deployments,
@@ -49,4 +49,4 @@ const deployPixelPacks: DeployFunction = async function ({
 
 export default deployPixelPacks;
 
-deployPixelPacks.tags = ["all", "pxp"];
+deployPixelPacks.tags = ["all", "pxpOnly", "fundLink"];
