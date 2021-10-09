@@ -23,8 +23,10 @@ const createPixelPack: DeployFunction = async function ({
     signer
   );
 
-  const creation_tx = pixelPackFactory.generatePixelPack({ gasLimit: 300000 });
-  const receipt = creation_tx.wait(1);
+  const creation_tx = await pixelPackFactory.generatePixelPack({
+    gasLimit: 300000,
+  });
+  const receipt = await creation_tx.wait(1);
   const tokenId = receipt.events[3].topics[2];
   log(`NFT created with token number ${tokenId}`);
 
@@ -40,32 +42,28 @@ const createPixelPack: DeployFunction = async function ({
       signer
     );
     const vrf_tx = await vrfCoordinator.callBackWithRandomness(
-      receipt.log[3].topics[1],
+      receipt.events[3].topics[1],
       69,
       pixelPackFactory.address
     );
     await vrf_tx.wait(1);
     log("Random number mock completed.");
     log("Finishing NFT Mint...");
-    const finish_tx = pixelPackFactory.finsishMint(tokenId, {
-      gasLimit: 2000000,
-    });
+    const finish_tx = await pixelPackFactory.finishMint(tokenId);
     await finish_tx.wait(1);
-    const tokenURI = pixelPackFactory.tokenURI(tokenId);
+    const tokenURI = await pixelPackFactory.tokenURI(tokenId);
     log(`NFT Minting Complete. You may view the tokenURI here: ${tokenURI}`);
   } else {
     // sloppy but it works
     await new Promise((r) => setTimeout(r, 180000));
     log("Finishing NFT Mint...");
-    const finish_tx = pixelPackFactory.finsishMint(tokenId, {
-      gasLimit: 2000000,
-    });
+    const finish_tx = pixelPackFactory.finsishMint(tokenId);
     await finish_tx.wait(1);
-    const tokenURI = pixelPackFactory.tokenURI(tokenId);
+    const tokenURI = await pixelPackFactory.tokenURI(tokenId);
     log(`NFT Minting Complete. You may view the tokenURI here: ${tokenURI}`);
   }
 };
 
 export default createPixelPack;
 
-createPixelPack.tags = ["all", "createOnly"];
+createPixelPack.tags = ["all", "createonly"];

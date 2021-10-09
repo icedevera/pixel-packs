@@ -31,4 +31,4 @@ const deployMocks: DeployFunction = async function ({
 
 export default deployMocks;
 
-deployMocks.tags = ["all", "mocksOnly", "fundLink"];
+deployMocks.tags = ["all", "mockpxp", "mocksOnly", "fundLink"];

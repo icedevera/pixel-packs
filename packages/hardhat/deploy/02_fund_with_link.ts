@@ -26,7 +26,8 @@ const fundWithLink: DeployFunction = async function ({
   }
 
   // fund with LINK
-  let networkId = (await getNetworkIdFromName(network.name)) ?? "";
+  log(`Network Name: ${network.name}`);
+  let networkId = await getNetworkIdFromName(network.name);
   const fundAmount = networkConfig[networkId as "31337"].fundAmount;
   const linkTokenContract = await ethers.getContractFactory("LinkToken");
   const linkToken = new ethers.Contract(
@@ -42,4 +43,4 @@ const fundWithLink: DeployFunction = async function ({
 
 export default fundWithLink;
 
-fundWithLink.tags = ["all", "fundLink", "fundOnly"];
+fundWithLink.tags = ["all", "fundlink", "fundonly"];

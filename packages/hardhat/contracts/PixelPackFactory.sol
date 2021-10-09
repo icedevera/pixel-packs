@@ -148,7 +148,7 @@ contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
             numberOfColors + numberOfCells
         );
 
-        string[] memory colors;
+        string[] memory colors = new string[](numberOfColors);
 
         for (uint256 i = 0; i < numberOfColors; i++) {
             uint256 colorDecimal = randomNumbers[i] % 16777216;
@@ -157,7 +157,8 @@ contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
             colors[i] = color;
         }
 
-        uint256[] memory schema;
+        uint256[] memory schema = new uint256[](numberOfCells);
+
         for (uint256 i = 0; i < numberOfCells; i++) {
             uint256 currentRandomNumberIndex = i + numberOfColors;
             uint256 randomColor = randomNumbers[currentRandomNumberIndex] %
@@ -196,15 +197,16 @@ contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
 
             finalSVG = string(
                 abi.encodePacked(
+                    finalSVG,
                     "<rect",
                     " width='",
-                    cellSize,
+                    uintTostr(cellSize),
                     "' height='",
-                    cellSize,
+                    uintTostr(cellSize),
                     "' x='",
-                    x,
+                    uintTostr(x),
                     "' y='",
-                    y,
+                    uintTostr(y),
                     "' fill='",
                     color,
                     "' />"

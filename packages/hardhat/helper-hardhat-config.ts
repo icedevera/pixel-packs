@@ -1,4 +1,11 @@
 export const networkConfig = {
+  default: {
+    name: "hardhat",
+    keyHash:
+      "0x2ed0feb3e7fd2022120aa84fab1945545a9f2ffc9076fd6156fa96eaff4c1311",
+    fee: "100000000000000000", // 0.1 LINK
+    fundAmount: "1000000000000000000", // 0.1 LINK
+  },
   "31337": {
     name: "localhost",
     keyHash:

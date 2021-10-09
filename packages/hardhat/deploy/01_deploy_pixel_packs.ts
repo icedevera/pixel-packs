@@ -29,7 +29,7 @@ const deployPixelPacks: DeployFunction = async function ({
   const keyHash = networkConfig[chainId as "4"].keyHash;
   const fee = networkConfig[chainId as "4"].fee;
 
-  let args = [vrfCoordinatorAddress, linkTokenAddress, keyHash, fee];
+  let args = [vrfCoordinatorAddress, linkTokenAddress, keyHash, fee, 500, 8, 3];
 
   log("---------------------------------------------------------------------");
   log(`Deploying PixelPackFactory to ${networkName}.`);
@@ -49,4 +49,4 @@ const deployPixelPacks: DeployFunction = async function ({
 
 export default deployPixelPacks;
 
-deployPixelPacks.tags = ["all", "pxpOnly", "fundLink"];
+deployPixelPacks.tags = ["all", "mockpxp", "pxponly", "fundlink"];
