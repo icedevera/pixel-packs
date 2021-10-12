@@ -7,18 +7,30 @@ import "@chainlink/contracts/src/v0.8/VRFConsumerBase.sol";
 import "base64-sol/base64.sol";
 
 contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
-    uint256 tokenCounter;
-
     //Pixel Pack NFT Params
     uint256 gridDimension;
     uint256 numberOfColors;
 
+    // special attribute odds
+    uint256 darkAuraOdds;
+    uint256 lightAuraOdds;
+    uint256 darkStrokeOdds;
+    uint256 lightStrokeOdds;
+    uint256 corruptOdds;
+    uint256 nobleOdds;
+
     // PixelPack Data
     struct PixelPack {
         string name;
+        bool darkAura;
+        bool lightAura;
+        bool darkStroke;
+        bool lightStroke;
+        bool corrupt;
+        bool noble;
         uint256 randomNumber;
-        string[] colors;
         uint256[] schema;
+        string[] colors;
     }
 
     PixelPack[] public pixelPacks;
@@ -53,32 +65,45 @@ contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
         uint256 _fee,
         uint256 _svgSize,
         uint256 _gridDimension,
-        uint256 _numberOfColors
+        uint256 _numberOfColors,
+        uint256 _darkAuraOdds,
+        uint256 _lightAuraOdds,
+        uint256 _darkStrokeOdds,
+        uint256 _lightStrokeOdds,
+        uint256 _corruptOdds,
+        uint256 _nobleOdds
     )
         ERC721("PixelPacks", "PXP")
         VRFConsumerBase(_VRFCoordinator, _LinkToken)
         Ownable()
     {
-        tokenCounter = 0;
         keyHash = _keyHash;
         fee = _fee;
         gridDimension = _gridDimension;
         svgSize = _svgSize;
         numberOfColors = _numberOfColors;
+
+        darkAuraOdds = _darkAuraOdds;
+        lightAuraOdds = _lightAuraOdds;
+        darkStrokeOdds = _darkStrokeOdds;
+        lightStrokeOdds = _lightStrokeOdds;
+        corruptOdds = _corruptOdds;
+        nobleOdds = _nobleOdds;
     }
 
     function generatePixelPack() public returns (bytes32 _requestId) {
         _requestId = requestRandomness(keyHash, fee);
         requestIdToSender[_requestId] = msg.sender;
 
-        string memory name = string(abi.encodePacked("PXP # ", tokenCounter));
+        string memory name = string(
+            abi.encodePacked("PXP #", uintToStr(pixelPacks.length - 1))
+        );
 
         pixelPacks.push(PixelPack(name, 0, new string[](0), new uint256[](0)));
         uint256 tokenId = pixelPacks.length - 1;
         requestIdToTokenId[_requestId] = tokenId;
         pixelPackToOwner[tokenId] = msg.sender;
         ownerPixelPackCount[msg.sender] = ownerPixelPackCount[msg.sender] + 1;
-        tokenCounter = tokenCounter + 1;
         emit RandomNumberRequested(_requestId, tokenId);
     }
 
@@ -98,7 +123,10 @@ contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
             bytes(tokenURI(_tokenId)).length <= 0,
             "tokenURI is alreay set."
         );
-        require(tokenCounter > _tokenId, "Token ID has not yet been minted.");
+        require(
+            (pixelPacks.length - 1) > _tokenId,
+            "Token ID has not yet been minted."
+        );
         require(
             pixelPacks[_tokenId].randomNumber > 0,
             "Random number has yet to be fulfilled."
@@ -107,10 +135,27 @@ contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
         uint256 randomNumber = pixelPacks[_tokenId].randomNumber;
         string[] memory colors;
         uint256[] memory schema;
+        bool darkAura;
+        bool lightAura;
+        bool darkStroke;
+        bool lightStroke;
+        bool corrupt;
+        bool noble;
 
-        (colors, schema) = generateMap(randomNumber);
+        (
+            colors,
+            schema,
+            darkAura,
+            lightAura,
+            darkStroke,
+            lightStroke,
+            corrupt,
+            noble
+        ) = generateMap(randomNumber);
+
         pixelPacks[_tokenId].colors = colors;
         pixelPacks[_tokenId].schema = schema;
+
         string memory svg = generateSVG(colors, schema);
         string memory imageURI = svgToImageURI(svg);
         string memory tokenURI = formatTokenURI(
@@ -139,13 +184,22 @@ contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
     function generateMap(uint256 _randomNumber)
         internal
         view
-        returns (string[] memory, uint256[] memory)
+        returns (
+            string[] memory,
+            uint256[] memory,
+            bool darkAura,
+            bool lightAura,
+            bool darkStroke,
+            bool lightStroke,
+            bool corrupt,
+            bool noble
+        )
     {
         uint256 numberOfCells = gridDimension**2;
 
         uint256[] memory randomNumbers = expand(
             _randomNumber,
-            numberOfColors + numberOfCells
+            numberOfColors + numberOfCells + 6 // 6 is the number of attributes
         );
 
         string[] memory colors = new string[](numberOfColors);
@@ -166,7 +220,24 @@ contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
             schema[i] = randomColor;
         }
 
-        return (colors, schema);
+        bool memory darkAura;
+        bool memory lightAura;
+        bool memory darkStroke;
+        bool memory lightStroke;
+        bool memory corrupt;
+        bool memory noble;
+
+        uint256 memory attributeIndex = numberOfColors + numberOfCells;
+
+        darkAura = (randomNumbers[attributeIndex] % darkAuraOdds) == 0;
+        lightAura = (randomNumbers[attributeIndex + 1] % lightAuraOdds) == 0;
+        darkStroke = (randomNumbers[attributeIndex + 2] % darkStrokeOdds) == 0;
+        lightStroke =
+            (randomNumbers[attributeIndex + 3] % lightStrokeOdds) == 0;
+        corrupt = (randomNumbers[attributeIndex + 4] % corruptOdds) == 0;
+        noble = (randomNumbers[attributeIndex + 5]) == 0;
+
+        return (colors, schema, darkAura, lightAura, outline, corrupt, noble);
     }
 
     function generateSVG(string[] memory _colors, uint256[] memory _schema)
@@ -177,9 +248,9 @@ contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
         finalSVG = string(
             abi.encodePacked(
                 "<svg xmlns='http://www.w3.org/2000/svg' height='",
-                uintTostr(svgSize),
+                uintToStr(svgSize),
                 "' width='",
-                uintTostr(svgSize),
+                uintToStr(svgSize),
                 "'>"
             )
         );
@@ -200,13 +271,13 @@ contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
                     finalSVG,
                     "<rect",
                     " width='",
-                    uintTostr(cellSize),
+                    uintToStr(cellSize),
                     "' height='",
-                    uintTostr(cellSize),
+                    uintToStr(cellSize),
                     "' x='",
-                    uintTostr(x),
+                    uintToStr(x),
                     "' y='",
-                    uintTostr(y),
+                    uintToStr(y),
                     "' fill='",
                     color,
                     "' />"
@@ -244,8 +315,8 @@ contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
                             abi.encodePacked(
                                 '{"name":"',
                                 _name,
-                                '", "description":"Pixel Pack # ',
-                                _tokenId,
+                                '", "description":"Pixel Pack #',
+                                uintToStr(_tokenId),
                                 '", "attributes":"", "image":"',
                                 _imageURI,
                                 '"}'
@@ -257,7 +328,7 @@ contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
     }
 
     // From: https://stackoverflow.com/a/65707309/11969592
-    function uintTostr(uint256 _i)
+    function uintToStr(uint256 _i)
         internal
         pure
         returns (string memory _uintAsString)

@@ -43,7 +43,7 @@ const createPixelPack: DeployFunction = async function ({
     );
     const vrf_tx = await vrfCoordinator.callBackWithRandomness(
       receipt.events[3].topics[1],
-      69,
+      Math.floor(Math.random() * 100000),
       pixelPackFactory.address
     );
     await vrf_tx.wait(1);
