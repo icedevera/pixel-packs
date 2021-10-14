@@ -9,7 +9,6 @@ const createPixelPack: DeployFunction = async function ({
   const { get, log } = deployments;
   const chainId = await getChainId();
 
-  log(`Generating Pixel Pack...`);
   const accounts = await ethers.getSigners();
   const signer = accounts[0];
 
@@ -23,9 +22,8 @@ const createPixelPack: DeployFunction = async function ({
     signer
   );
 
-  const creation_tx = await pixelPackFactory.generatePixelPack({
-    gasLimit: 300000,
-  });
+  log(`Generating Pixel Pack...`);
+  const creation_tx = await pixelPackFactory.generatePixelPack();
   const receipt = await creation_tx.wait(1);
   const tokenId = receipt.events[3].topics[2];
   log(`NFT created with token number ${tokenId}`);

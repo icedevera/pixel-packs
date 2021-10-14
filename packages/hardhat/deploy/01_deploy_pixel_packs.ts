@@ -29,7 +29,21 @@ const deployPixelPacks: DeployFunction = async function ({
   const keyHash = networkConfig[chainId as "4"].keyHash;
   const fee = networkConfig[chainId as "4"].fee;
 
-  let args = [vrfCoordinatorAddress, linkTokenAddress, keyHash, fee, 500, 8, 3];
+  let args = [
+    vrfCoordinatorAddress,
+    linkTokenAddress,
+    keyHash,
+    fee,
+    // change these to test out the different possible attribute effects
+    [
+      1000, // _darkAuraOdds
+      1000, // _lightAuraOdds
+      1000, // _darkStrokeOdds
+      1000, // _lightStrokeOdds
+      1000, // _corruptOdds
+      1000, // _nobleOdds
+    ],
+  ];
 
   log("---------------------------------------------------------------------");
   log(`Deploying PixelPackFactory to ${networkName}.`);

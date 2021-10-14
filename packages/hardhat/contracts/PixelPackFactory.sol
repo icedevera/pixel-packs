@@ -7,17 +7,28 @@ import "@chainlink/contracts/src/v0.8/VRFConsumerBase.sol";
 import "base64-sol/base64.sol";
 
 contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
-    //Pixel Pack NFT Params
-    uint256 gridDimension;
-    uint256 numberOfColors;
+    struct AttributeOdds {
+        uint256 darkAuraOdds;
+        uint256 lightAuraOdds;
+        uint256 darkStrokeOdds;
+        uint256 lightStrokeOdds;
+        uint256 corruptOdds;
+        uint256 nobleOdds;
+    }
 
-    // special attribute odds
-    uint256 darkAuraOdds;
-    uint256 lightAuraOdds;
-    uint256 darkStrokeOdds;
-    uint256 lightStrokeOdds;
-    uint256 corruptOdds;
-    uint256 nobleOdds;
+    AttributeOdds public attributeOdds;
+
+    struct PixelPackMap {
+        bool darkAura;
+        bool lightAura;
+        bool darkStroke;
+        bool lightStroke;
+        bool corrupt;
+        bool noble;
+        uint256[] schema;
+        string[] colors;
+        bool[] corruptSchema;
+    }
 
     // PixelPack Data
     struct PixelPack {
@@ -31,6 +42,7 @@ contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
         uint256 randomNumber;
         uint256[] schema;
         string[] colors;
+        bool[] corruptSchema;
     }
 
     PixelPack[] public pixelPacks;
@@ -40,13 +52,9 @@ contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
     mapping(uint256 => address) public pixelPackToOwner;
     mapping(address => uint256) ownerPixelPackCount;
 
-    // SVG Params
-    uint256 svgSize;
-
     // Random number generation via ChainlinkVRF:
     bytes32 internal keyHash;
     uint256 internal fee;
-    uint256 public randomResult;
 
     event RandomNumberRequested(
         bytes32 indexed requestId,
@@ -63,15 +71,7 @@ contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
         address _LinkToken,
         bytes32 _keyHash,
         uint256 _fee,
-        uint256 _svgSize,
-        uint256 _gridDimension,
-        uint256 _numberOfColors,
-        uint256 _darkAuraOdds,
-        uint256 _lightAuraOdds,
-        uint256 _darkStrokeOdds,
-        uint256 _lightStrokeOdds,
-        uint256 _corruptOdds,
-        uint256 _nobleOdds
+        uint256[] memory _attributeOdds
     )
         ERC721("PixelPacks", "PXP")
         VRFConsumerBase(_VRFCoordinator, _LinkToken)
@@ -79,16 +79,15 @@ contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
     {
         keyHash = _keyHash;
         fee = _fee;
-        gridDimension = _gridDimension;
-        svgSize = _svgSize;
-        numberOfColors = _numberOfColors;
 
-        darkAuraOdds = _darkAuraOdds;
-        lightAuraOdds = _lightAuraOdds;
-        darkStrokeOdds = _darkStrokeOdds;
-        lightStrokeOdds = _lightStrokeOdds;
-        corruptOdds = _corruptOdds;
-        nobleOdds = _nobleOdds;
+        attributeOdds = AttributeOdds(
+            _attributeOdds[0],
+            _attributeOdds[1],
+            _attributeOdds[2],
+            _attributeOdds[3],
+            _attributeOdds[4],
+            _attributeOdds[5]
+        );
     }
 
     function generatePixelPack() public returns (bytes32 _requestId) {
@@ -96,10 +95,25 @@ contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
         requestIdToSender[_requestId] = msg.sender;
 
         string memory name = string(
-            abi.encodePacked("PXP #", uintToStr(pixelPacks.length - 1))
+            abi.encodePacked("PXP #", uintToStr((pixelPacks.length)))
         );
 
-        pixelPacks.push(PixelPack(name, 0, new string[](0), new uint256[](0)));
+        pixelPacks.push(
+            PixelPack({
+                name: name,
+                darkAura: false,
+                lightAura: false,
+                darkStroke: false,
+                lightStroke: false,
+                corrupt: false,
+                noble: false,
+                randomNumber: 0,
+                schema: new uint256[](0),
+                colors: new string[](0),
+                corruptSchema: new bool[](0)
+            })
+        );
+
         uint256 tokenId = pixelPacks.length - 1;
         requestIdToTokenId[_requestId] = tokenId;
         pixelPackToOwner[tokenId] = msg.sender;
@@ -124,7 +138,7 @@ contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
             "tokenURI is alreay set."
         );
         require(
-            (pixelPacks.length - 1) > _tokenId,
+            (pixelPacks.length) > _tokenId,
             "Token ID has not yet been minted."
         );
         require(
@@ -133,30 +147,21 @@ contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
         );
 
         uint256 randomNumber = pixelPacks[_tokenId].randomNumber;
-        string[] memory colors;
-        uint256[] memory schema;
-        bool darkAura;
-        bool lightAura;
-        bool darkStroke;
-        bool lightStroke;
-        bool corrupt;
-        bool noble;
 
-        (
-            colors,
-            schema,
-            darkAura,
-            lightAura,
-            darkStroke,
-            lightStroke,
-            corrupt,
-            noble
-        ) = generateMap(randomNumber);
+        PixelPackMap memory pixelPackMap;
 
-        pixelPacks[_tokenId].colors = colors;
-        pixelPacks[_tokenId].schema = schema;
+        pixelPackMap = generateMap(randomNumber, attributeOdds);
 
-        string memory svg = generateSVG(colors, schema);
+        pixelPacks[_tokenId].colors = pixelPackMap.colors;
+        pixelPacks[_tokenId].schema = pixelPackMap.schema;
+        pixelPacks[_tokenId].darkAura = pixelPackMap.darkAura;
+        pixelPacks[_tokenId].lightAura = pixelPackMap.lightAura;
+        pixelPacks[_tokenId].darkStroke = pixelPackMap.darkStroke;
+        pixelPacks[_tokenId].lightStroke = pixelPackMap.lightStroke;
+        pixelPacks[_tokenId].corrupt = pixelPackMap.corrupt;
+        pixelPacks[_tokenId].corruptSchema = pixelPackMap.corruptSchema;
+
+        string memory svg = generateSVG(pixelPackMap);
         string memory imageURI = svgToImageURI(svg);
         string memory tokenURI = formatTokenURI(
             imageURI,
@@ -168,121 +173,314 @@ contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
         emit NewPixelPack(_tokenId, tokenURI);
     }
 
-    // Expand Chainlink VRF random number to multiple random numbers of count n
-    function expand(uint256 randomValue, uint256 n)
-        internal
-        pure
-        returns (uint256[] memory expandedValues)
-    {
-        expandedValues = new uint256[](n);
-        for (uint256 i = 0; i < n; i++) {
-            expandedValues[i] = uint256(keccak256(abi.encode(randomValue, i)));
-        }
-        return expandedValues;
-    }
-
-    function generateMap(uint256 _randomNumber)
-        internal
-        view
-        returns (
-            string[] memory,
-            uint256[] memory,
-            bool darkAura,
-            bool lightAura,
-            bool darkStroke,
-            bool lightStroke,
-            bool corrupt,
-            bool noble
-        )
-    {
-        uint256 numberOfCells = gridDimension**2;
-
+    function generateMap(
+        uint256 _randomNumber,
+        AttributeOdds memory _attributeOdds
+    ) internal pure returns (PixelPackMap memory pixelPackMap) {
         uint256[] memory randomNumbers = expand(
             _randomNumber,
-            numberOfColors + numberOfCells + 6 // 6 is the number of attributes
+            73, // 3 is the number of colors + 64 is the number of cells + 6 is the number of attributes
+            0
         );
 
-        string[] memory colors = new string[](numberOfColors);
+        pixelPackMap.colors = new string[](3);
 
-        for (uint256 i = 0; i < numberOfColors; i++) {
-            uint256 colorDecimal = randomNumbers[i] % 16777216;
-            string memory colorHex = uintToHexStr(colorDecimal);
-            string memory color = string(abi.encodePacked("#", colorHex));
-            colors[i] = color;
+        for (uint256 i = 0; i < 3; i++) {
+            pixelPackMap.colors[i] = string(
+                abi.encodePacked("#", uintToHexStr(randomNumbers[i] % 16777216))
+            );
         }
 
-        uint256[] memory schema = new uint256[](numberOfCells);
+        pixelPackMap.schema = new uint256[](64);
 
-        for (uint256 i = 0; i < numberOfCells; i++) {
-            uint256 currentRandomNumberIndex = i + numberOfColors;
-            uint256 randomColor = randomNumbers[currentRandomNumberIndex] %
-                numberOfColors;
-            schema[i] = randomColor;
+        for (uint256 i = 0; i < 64; i++) {
+            pixelPackMap.schema[i] = (randomNumbers[i + 3]) % 3;
         }
 
-        bool memory darkAura;
-        bool memory lightAura;
-        bool memory darkStroke;
-        bool memory lightStroke;
-        bool memory corrupt;
-        bool memory noble;
+        pixelPackMap.corruptSchema = new bool[](192); // 192 = 64 number of cells * 3 number of colors
 
-        uint256 memory attributeIndex = numberOfColors + numberOfCells;
+        uint256 attributeIndex = 67; // compensate for the already used expanded random numbers
 
-        darkAura = (randomNumbers[attributeIndex] % darkAuraOdds) == 0;
-        lightAura = (randomNumbers[attributeIndex + 1] % lightAuraOdds) == 0;
-        darkStroke = (randomNumbers[attributeIndex + 2] % darkStrokeOdds) == 0;
-        lightStroke =
-            (randomNumbers[attributeIndex + 3] % lightStrokeOdds) == 0;
-        corrupt = (randomNumbers[attributeIndex + 4] % corruptOdds) == 0;
-        noble = (randomNumbers[attributeIndex + 5]) == 0;
+        pixelPackMap.darkAura =
+            (randomNumbers[attributeIndex] % _attributeOdds.darkAuraOdds) == 0;
+        pixelPackMap.lightAura =
+            (randomNumbers[attributeIndex + 1] %
+                _attributeOdds.lightAuraOdds) ==
+            0;
+        pixelPackMap.darkStroke =
+            (randomNumbers[attributeIndex + 2] %
+                _attributeOdds.darkStrokeOdds) ==
+            0;
+        pixelPackMap.lightStroke =
+            (randomNumbers[attributeIndex + 3] %
+                _attributeOdds.lightStrokeOdds) ==
+            0;
+        pixelPackMap.corrupt =
+            (randomNumbers[attributeIndex + 4] % _attributeOdds.corruptOdds) ==
+            0;
+        pixelPackMap.noble =
+            (randomNumbers[attributeIndex + 5] % _attributeOdds.nobleOdds) == 0;
 
-        return (colors, schema, darkAura, lightAura, outline, corrupt, noble);
+        if (pixelPackMap.corrupt) {
+            uint256[] memory corruptRandomNumbers = expand(
+                _randomNumber,
+                192,
+                73
+            );
+
+            for (uint256 i = 0; i < 192; i++) {
+                bool isBlack = (corruptRandomNumbers[i] % 2) == 0;
+                pixelPackMap.corruptSchema[i] = isBlack;
+            }
+        }
+
+        return pixelPackMap;
     }
 
-    function generateSVG(string[] memory _colors, uint256[] memory _schema)
+    function generateSVG(PixelPackMap memory _pixelPackMap)
         internal
-        view
+        pure
         returns (string memory finalSVG)
     {
         finalSVG = string(
             abi.encodePacked(
                 "<svg xmlns='http://www.w3.org/2000/svg' height='",
-                uintToStr(svgSize),
+                uintToStr(680),
                 "' width='",
-                uintToStr(svgSize),
-                "'>"
+                uintToStr(680),
+                "' fill='transparent' "
             )
         );
 
-        uint256 cellSize = svgSize / gridDimension;
-        uint256 numberOfCells = gridDimension**2;
+        // conditions for border
+        if (_pixelPackMap.darkAura && _pixelPackMap.lightAura) {
+            // fuse dark and light to create glass
+            finalSVG = string(
+                abi.encodePacked(finalSVG, "filter='url(#glass)' ")
+            );
+        } else if (_pixelPackMap.darkAura || _pixelPackMap.lightAura) {
+            // create aura border
+            finalSVG = string(
+                abi.encodePacked(finalSVG, "filter='url(#aura)' ")
+            );
+        }
 
-        for (uint256 i = 0; i < numberOfCells; i++) {
-            uint256 row = i / gridDimension;
-            uint256 col = i % gridDimension;
-            uint256 x = cellSize * col;
-            uint256 y = cellSize * row;
-
-            string memory color = _colors[_schema[i]];
-
+        // conditions for outline
+        if (_pixelPackMap.darkStroke && _pixelPackMap.lightStroke) {
+            // fuse dark and light to create overflow
             finalSVG = string(
                 abi.encodePacked(
                     finalSVG,
-                    "<rect",
-                    " width='",
-                    uintToStr(cellSize),
-                    "' height='",
-                    uintToStr(cellSize),
-                    "' x='",
-                    uintToStr(x),
-                    "' y='",
-                    uintToStr(y),
-                    "' fill='",
-                    color,
-                    "' />"
+                    "stroke='url(#overflow)' stroke-width='3px' "
                 )
             );
+        } else if (_pixelPackMap.darkStroke) {
+            // create dark outline
+            finalSVG = string(
+                abi.encodePacked(
+                    finalSVG,
+                    "stroke='#000000' stroke-width='3px' "
+                )
+            );
+        } else if (_pixelPackMap.lightStroke) {
+            // create light outline
+            finalSVG = string(
+                abi.encodePacked(
+                    finalSVG,
+                    "stroke='#FFFFFF' stroke-width='3px' "
+                )
+            );
+        }
+
+        finalSVG = string(abi.encodePacked(finalSVG, ">"));
+
+        // define effects
+        if (
+            _pixelPackMap.darkAura ||
+            _pixelPackMap.lightAura ||
+            (_pixelPackMap.darkStroke && _pixelPackMap.lightStroke)
+        ) {
+            finalSVG = string(abi.encodePacked(finalSVG, "<defs>"));
+
+            // define border
+            if (_pixelPackMap.darkAura && _pixelPackMap.lightAura) {
+                // define glass
+                finalSVG = string(
+                    abi.encodePacked(
+                        finalSVG,
+                        "<filter id='glass'><feGaussianBlur in='SourceGraphic' stdDeviation='10' result='blur'/><feColorMatrix in='blur' mode='matrix' values='1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 17 -2.15'/><feComposite in='SourceGraphic' operator='over'/></filter>"
+                    )
+                );
+            } else if (_pixelPackMap.darkAura || _pixelPackMap.lightAura) {
+                // define dark aura
+                finalSVG = string(
+                    abi.encodePacked(
+                        finalSVG,
+                        "<filter id='aura' height='300%' width='300%' x='-75%' y='-75%'><feMorphology operator='dilate' radius='4' in='SourceAlpha' result='thicken'/><feGaussianBlur in='thicken' stdDeviation='15' result='blurred'/><feFlood flood-color="
+                    )
+                );
+
+                if (_pixelPackMap.darkAura) {
+                    finalSVG = string(abi.encodePacked(finalSVG, "'#000000' "));
+                }
+
+                if (_pixelPackMap.lightAura) {
+                    finalSVG = string(abi.encodePacked(finalSVG, "'#FFDF4F' "));
+                }
+
+                finalSVG = string(
+                    abi.encodePacked(
+                        finalSVG,
+                        "result='glowColor'/><feComposite in='glowColor 'in2='blurred' operator='in' result='softGlow_colored'/><feMerge><feMergeNode in='softGlow_colored'/><feMergeNode in='SourceGraphic'/></feMerge></filter>"
+                    )
+                );
+            }
+
+            if (_pixelPackMap.darkStroke && _pixelPackMap.lightStroke) {
+                finalSVG = string(
+                    abi.encodePacked(
+                        finalSVG,
+                        "<linearGradient id='overflow' x1='50%' y1='0%' x2='75%' y2='100%'><stop offset='0%' stop-color='#F79533'><animate attributeName='stop-color' values='#F79533;#F37055;#EF4E7B;#A166AB;#5073B8;#1098AD;#07B39B;#6DBA82;#F79533' dur='4s' repeatCount='indefinite'></animate></stop><stop offset='100%' stop-color='#F79533'><animate attributeName='stop-color' values='#F37055;#EF4E7B;#A166AB;#5073B8;#1098AD;#07B39B;#6DBA82;#F79533;#F37055' dur='4s' repeatCount='indefinite'></animate></stop></linearGradient>"
+                    )
+                );
+            }
+
+            finalSVG = string(abi.encodePacked(finalSVG, "</defs>"));
+        }
+
+        for (uint256 i = 0; i < 64; i++) {
+            string memory color = _pixelPackMap.colors[_pixelPackMap.schema[i]];
+
+            if (_pixelPackMap.corrupt || _pixelPackMap.noble) {
+                finalSVG = string(
+                    abi.encodePacked(
+                        finalSVG,
+                        "<rect",
+                        " width='",
+                        uintToStr(85), // svgSize / numberof Cells = width
+                        "' height='",
+                        uintToStr(85), // svgSize / numberof Cells = height
+                        "' x='",
+                        uintToStr(((85) * (i % 8))),
+                        "' y='",
+                        uintToStr(((85) * (i / 8))),
+                        "' fill='",
+                        color,
+                        "'>"
+                    )
+                );
+
+                if (
+                    (_pixelPackMap.corrupt && _pixelPackMap.noble) ||
+                    _pixelPackMap.corrupt
+                ) {
+                    bool isBlack1 = _pixelPackMap.corruptSchema[i];
+                    bool isBlack2 = _pixelPackMap.corruptSchema[i + 64];
+
+                    string memory corruption1 = "transparent";
+                    string memory corruption2 = "transparent";
+
+                    if (isBlack1) {
+                        corruption1 = "#000000";
+                    }
+
+                    if (isBlack2) {
+                        corruption2 = "#000000";
+                    }
+
+                    if (_pixelPackMap.corrupt && _pixelPackMap.noble) {
+                        finalSVG = string(
+                            abi.encodePacked(
+                                finalSVG,
+                                "<animate attributeName='fill' dur='5s' values='",
+                                color,
+                                ";",
+                                _pixelPackMap.colors[0],
+                                ";",
+                                corruption1,
+                                ";",
+                                _pixelPackMap.colors[1],
+                                ";",
+                                corruption2,
+                                ";",
+                                _pixelPackMap.colors[2],
+                                ";",
+                                color,
+                                ";",
+                                color,
+                                ";' ",
+                                "keyTimes='0; 0.05; .10; .15; .20; .25; .30; 1' calcMode='linear' repeatCount='indefinite'/>"
+                            )
+                        );
+                    } else if (_pixelPackMap.corrupt) {
+                        bool isBlack3 = _pixelPackMap.corruptSchema[i + 128];
+
+                        string memory corruption3 = "transparent";
+
+                        if (isBlack3) {
+                            corruption3 = "#000000";
+                        }
+
+                        finalSVG = string(
+                            abi.encodePacked(
+                                finalSVG,
+                                "<animate attributeName='fill' dur='5s' values='",
+                                color,
+                                ";",
+                                corruption1,
+                                ";",
+                                color,
+                                ";",
+                                corruption2,
+                                ";",
+                                corruption3,
+                                ";' ",
+                                "keyTimes='0; 0.9; 0.92; .96; .98' calcMode='discrete' repeatCount='indefinite'/>"
+                            )
+                        );
+                    }
+                } else if (_pixelPackMap.noble) {
+                    finalSVG = string(
+                        abi.encodePacked(
+                            finalSVG,
+                            "<animate attributeName='fill' dur='10s' values='",
+                            color,
+                            "; ",
+                            _pixelPackMap.colors[0],
+                            "; ",
+                            _pixelPackMap.colors[1],
+                            "; ",
+                            _pixelPackMap.colors[2],
+                            "; ",
+                            color,
+                            "; ",
+                            color,
+                            ";' ",
+                            "keyTimes='0;0.1;0.15;0.2;0.25;1' calcMode='linear' repeatCount='indefinite'/>"
+                        )
+                    );
+                }
+
+                finalSVG = string(abi.encodePacked(finalSVG, "<rect/>"));
+            } else {
+                finalSVG = string(
+                    abi.encodePacked(
+                        finalSVG,
+                        "<rect",
+                        " width='",
+                        uintToStr(85),
+                        "' height='",
+                        uintToStr(85),
+                        "' x='",
+                        uintToStr(((85) * (i % 8))),
+                        "' y='",
+                        uintToStr(((85) * (i / 8))),
+                        "' fill='",
+                        color,
+                        "'/>"
+                    )
+                );
+            }
         }
 
         finalSVG = string(abi.encodePacked(finalSVG, "</svg>"));
@@ -325,6 +523,19 @@ contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
                     )
                 )
             );
+    }
+
+    // Expand Chainlink VRF random number to multiple random numbers of count n
+    function expand(
+        uint256 randomValue,
+        uint256 n,
+        uint256 start
+    ) internal pure returns (uint256[] memory expandedValues) {
+        expandedValues = new uint256[](n + start);
+        for (uint256 i = start; i < n + start; i++) {
+            expandedValues[i] = uint256(keccak256(abi.encode(randomValue, i)));
+        }
+        return expandedValues;
     }
 
     // From: https://stackoverflow.com/a/65707309/11969592

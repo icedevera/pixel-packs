@@ -8,6 +8,7 @@ import "@nomiclabs/hardhat-ethers";
 import "@nomiclabs/hardhat-etherscan";
 import "hardhat-deploy";
 import { HardhatUserConfig } from "hardhat/config";
+("hardhat-contract-sizer");
 
 require("dotenv").config();
 
@@ -20,7 +21,11 @@ const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY;
 export const config: HardhatUserConfig = {
   defaultNetwork: "hardhat",
   networks: {
-    hardhat: {},
+    hardhat: {
+      throwOnTransactionFailures: true,
+      throwOnCallFailures: true,
+      allowUnlimitedContractSize: true,
+    },
     localhost: {},
     rinkeby: {
       url: RINKEBY_RPC_URL,
