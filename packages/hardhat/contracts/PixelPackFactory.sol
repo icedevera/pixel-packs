@@ -25,9 +25,9 @@ contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
         bool lightStroke;
         bool corrupt;
         bool noble;
-        uint256[] schema;
+        uint256 corruptSchema;
+        uint8[] schema;
         string[] colors;
-        bool[] corruptSchema;
     }
 
     // PixelPack Data
@@ -40,9 +40,9 @@ contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
         bool corrupt;
         bool noble;
         uint256 randomNumber;
-        uint256[] schema;
+        uint256 corruptSchema;
+        uint8[] schema;
         string[] colors;
-        bool[] corruptSchema;
     }
 
     PixelPack[] public pixelPacks;
@@ -108,9 +108,9 @@ contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
                 corrupt: false,
                 noble: false,
                 randomNumber: 0,
-                schema: new uint256[](0),
-                colors: new string[](0),
-                corruptSchema: new bool[](0)
+                corruptSchema: 0,
+                schema: new uint8[](0),
+                colors: new string[](0)
             })
         );
 
@@ -179,25 +179,22 @@ contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
     ) internal pure returns (PixelPackMap memory pixelPackMap) {
         uint256[] memory randomNumbers = expand(
             _randomNumber,
-            73, // 3 is the number of colors + 64 is the number of cells + 6 is the number of attributes
-            0
+            74 // 3 is the number of colors + 64 is the number of cells + 6 is the number of attributes + 1 for the corrupt schema
         );
 
         pixelPackMap.colors = new string[](3);
 
-        for (uint256 i = 0; i < 3; i++) {
+        for (uint8 i = 0; i < 3; i++) {
             pixelPackMap.colors[i] = string(
                 abi.encodePacked("#", uintToHexStr(randomNumbers[i] % 16777216))
             );
         }
 
-        pixelPackMap.schema = new uint256[](64);
+        pixelPackMap.schema = new uint8[](64);
 
-        for (uint256 i = 0; i < 64; i++) {
-            pixelPackMap.schema[i] = (randomNumbers[i + 3]) % 3;
+        for (uint8 i = 0; i < 64; i++) {
+            pixelPackMap.schema[i] = uint8((randomNumbers[i + 3]) % 3);
         }
-
-        pixelPackMap.corruptSchema = new bool[](192); // 192 = 64 number of cells * 3 number of colors
 
         uint256 attributeIndex = 67; // compensate for the already used expanded random numbers
 
@@ -222,16 +219,9 @@ contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
             (randomNumbers[attributeIndex + 5] % _attributeOdds.nobleOdds) == 0;
 
         if (pixelPackMap.corrupt) {
-            uint256[] memory corruptRandomNumbers = expand(
-                _randomNumber,
-                192,
-                73
-            );
-
-            for (uint256 i = 0; i < 192; i++) {
-                bool isBlack = (corruptRandomNumbers[i] % 2) == 0;
-                pixelPackMap.corruptSchema[i] = isBlack;
-            }
+            pixelPackMap.corruptSchema =
+                randomNumbers[attributeIndex + 6] %
+                192; // 192 = 64 number of cells * 3 corruption positions
         }
 
         return pixelPackMap;
@@ -244,7 +234,7 @@ contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
     {
         finalSVG = string(
             abi.encodePacked(
-                "<svg xmlns='http://www.w3.org/2000/svg' height='",
+                "<svg xmlns='http://www.w3.org/2000/svg' overflow='visible' height='",
                 uintToStr(680),
                 "' width='",
                 uintToStr(680),
@@ -348,6 +338,10 @@ contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
             finalSVG = string(abi.encodePacked(finalSVG, "</defs>"));
         }
 
+        string memory color1 = _pixelPackMap.colors[0];
+        string memory color2 = _pixelPackMap.colors[1];
+        string memory color3 = _pixelPackMap.colors[2];
+
         for (uint256 i = 0; i < 64; i++) {
             string memory color = _pixelPackMap.colors[_pixelPackMap.schema[i]];
 
@@ -374,17 +368,14 @@ contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
                     (_pixelPackMap.corrupt && _pixelPackMap.noble) ||
                     _pixelPackMap.corrupt
                 ) {
-                    bool isBlack1 = _pixelPackMap.corruptSchema[i];
-                    bool isBlack2 = _pixelPackMap.corruptSchema[i + 64];
-
                     string memory corruption1 = "transparent";
                     string memory corruption2 = "transparent";
 
-                    if (isBlack1) {
+                    if (readWithBitmap(_pixelPackMap.corruptSchema, i)) {
                         corruption1 = "#000000";
                     }
 
-                    if (isBlack2) {
+                    if (readWithBitmap(_pixelPackMap.corruptSchema, i + 64)) {
                         corruption2 = "#000000";
                     }
 
@@ -395,29 +386,29 @@ contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
                                 "<animate attributeName='fill' dur='5s' values='",
                                 color,
                                 ";",
-                                _pixelPackMap.colors[0],
+                                color1,
                                 ";",
                                 corruption1,
                                 ";",
-                                _pixelPackMap.colors[1],
+                                color2,
                                 ";",
                                 corruption2,
                                 ";",
-                                _pixelPackMap.colors[2],
+                                color3,
                                 ";",
                                 color,
                                 ";",
                                 color,
                                 ";' ",
-                                "keyTimes='0; 0.05; .10; .15; .20; .25; .30; 1' calcMode='linear' repeatCount='indefinite'/>"
+                                "keyTimes='0; 0.05; .10; .15; .20; .25; .30; 1' repeatCount='indefinite'/>"
                             )
                         );
                     } else if (_pixelPackMap.corrupt) {
-                        bool isBlack3 = _pixelPackMap.corruptSchema[i + 128];
-
                         string memory corruption3 = "transparent";
 
-                        if (isBlack3) {
+                        if (
+                            readWithBitmap(_pixelPackMap.corruptSchema, i + 128)
+                        ) {
                             corruption3 = "#000000";
                         }
 
@@ -446,22 +437,22 @@ contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
                             "<animate attributeName='fill' dur='10s' values='",
                             color,
                             "; ",
-                            _pixelPackMap.colors[0],
+                            color1,
                             "; ",
-                            _pixelPackMap.colors[1],
+                            color2,
                             "; ",
-                            _pixelPackMap.colors[2],
+                            color3,
                             "; ",
                             color,
                             "; ",
                             color,
                             ";' ",
-                            "keyTimes='0;0.1;0.15;0.2;0.25;1' calcMode='linear' repeatCount='indefinite'/>"
+                            "keyTimes='0;0.1;0.15;0.2;0.25;1' repeatCount='indefinite'/>"
                         )
                     );
                 }
 
-                finalSVG = string(abi.encodePacked(finalSVG, "<rect/>"));
+                finalSVG = string(abi.encodePacked(finalSVG, "</rect>"));
             } else {
                 finalSVG = string(
                     abi.encodePacked(
@@ -526,19 +517,30 @@ contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
     }
 
     // Expand Chainlink VRF random number to multiple random numbers of count n
-    function expand(
-        uint256 randomValue,
-        uint256 n,
-        uint256 start
-    ) internal pure returns (uint256[] memory expandedValues) {
-        expandedValues = new uint256[](n + start);
-        for (uint256 i = start; i < n + start; i++) {
+    function expand(uint256 randomValue, uint256 n)
+        public
+        pure
+        returns (uint256[] memory expandedValues)
+    {
+        expandedValues = new uint256[](n);
+        for (uint256 i = 0; i < n; i++) {
             expandedValues[i] = uint256(keccak256(abi.encode(randomValue, i)));
         }
         return expandedValues;
     }
 
-    // From: https://stackoverflow.com/a/65707309/11969592
+    // https://soliditydeveloper.com/bitmaps
+    // reads a bitmap and returns a boolean depending if the indexed bit is a 1 or a 0
+    function readWithBitmap(uint256 bitMap, uint256 indexFromRight)
+        internal
+        pure
+        returns (bool)
+    {
+        uint256 bitAtIndex = bitMap & (1 << indexFromRight);
+        return bitAtIndex > 0;
+    }
+
+    // From: https://stackoverflow.com/questions/47129173
     function uintToStr(uint256 _i)
         internal
         pure

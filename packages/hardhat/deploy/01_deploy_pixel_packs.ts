@@ -36,10 +36,10 @@ const deployPixelPacks: DeployFunction = async function ({
     fee,
     // change these to test out the different possible attribute effects
     [
-      1000, // _darkAuraOdds
-      1000, // _lightAuraOdds
-      1000, // _darkStrokeOdds
-      1000, // _lightStrokeOdds
+      1, // _darkAuraOdds
+      1, // _lightAuraOdds
+      1, // _darkStrokeOdds
+      1, // _lightStrokeOdds
       1000, // _corruptOdds
       1000, // _nobleOdds
     ],
