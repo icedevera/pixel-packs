@@ -219,9 +219,11 @@ contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
             (randomNumbers[attributeIndex + 5] % _attributeOdds.nobleOdds) == 0;
 
         if (pixelPackMap.corrupt) {
+            // 64 bits is needed to get a corresponding bool for each cell
+            // in non-binary decimal form the max number we can obtain is 18446744073709551615
             pixelPackMap.corruptSchema =
                 randomNumbers[attributeIndex + 6] %
-                192; // 192 = 64 number of cells * 3 corruption positions
+                18446744073709551615;
         }
 
         return pixelPackMap;
@@ -234,11 +236,7 @@ contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
     {
         finalSVG = string(
             abi.encodePacked(
-                "<svg xmlns='http://www.w3.org/2000/svg' overflow='visible' height='",
-                uintToStr(680),
-                "' width='",
-                uintToStr(680),
-                "' fill='transparent' "
+                "<svg xmlns='http://www.w3.org/2000/svg' overflow='visible' height='680' width='680' fill='transparent' "
             )
         );
 
@@ -288,7 +286,9 @@ contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
         if (
             _pixelPackMap.darkAura ||
             _pixelPackMap.lightAura ||
-            (_pixelPackMap.darkStroke && _pixelPackMap.lightStroke)
+            _pixelPackMap.corrupt ||
+            _pixelPackMap.noble
+            // (_pixelPackMap.darkStroke && _pixelPackMap.lightStroke)
         ) {
             finalSVG = string(abi.encodePacked(finalSVG, "<defs>"));
 
@@ -335,146 +335,582 @@ contract PixelPackFactory is ERC721URIStorage, VRFConsumerBase, Ownable {
                 );
             }
 
-            finalSVG = string(abi.encodePacked(finalSVG, "</defs>"));
-        }
-
-        string memory color1 = _pixelPackMap.colors[0];
-        string memory color2 = _pixelPackMap.colors[1];
-        string memory color3 = _pixelPackMap.colors[2];
-
-        for (uint256 i = 0; i < 64; i++) {
-            string memory color = _pixelPackMap.colors[_pixelPackMap.schema[i]];
-
-            if (_pixelPackMap.corrupt || _pixelPackMap.noble) {
+            if (_pixelPackMap.corrupt && _pixelPackMap.noble) {
                 finalSVG = string(
                     abi.encodePacked(
                         finalSVG,
-                        "<rect",
-                        " width='",
-                        uintToStr(85), // svgSize / numberof Cells = width
-                        "' height='",
-                        uintToStr(85), // svgSize / numberof Cells = height
-                        "' x='",
-                        uintToStr(((85) * (i % 8))),
-                        "' y='",
-                        uintToStr(((85) * (i / 8))),
-                        "' fill='",
-                        color,
-                        "'>"
+                        defineG(
+                            _pixelPackMap.colors[0],
+                            _pixelPackMap.colors[1],
+                            _pixelPackMap.colors[2]
+                        )
                     )
                 );
-
-                if (
-                    (_pixelPackMap.corrupt && _pixelPackMap.noble) ||
-                    _pixelPackMap.corrupt
-                ) {
-                    string memory corruption1 = "transparent";
-                    string memory corruption2 = "transparent";
-
-                    if (readWithBitmap(_pixelPackMap.corruptSchema, i)) {
-                        corruption1 = "#000000";
-                    }
-
-                    if (readWithBitmap(_pixelPackMap.corruptSchema, i + 64)) {
-                        corruption2 = "#000000";
-                    }
-
-                    if (_pixelPackMap.corrupt && _pixelPackMap.noble) {
-                        finalSVG = string(
-                            abi.encodePacked(
-                                finalSVG,
-                                "<animate attributeName='fill' dur='5s' values='",
-                                color,
-                                ";",
-                                color1,
-                                ";",
-                                corruption1,
-                                ";",
-                                color2,
-                                ";",
-                                corruption2,
-                                ";",
-                                color3,
-                                ";",
-                                color,
-                                ";",
-                                color,
-                                ";' ",
-                                "keyTimes='0; 0.05; .10; .15; .20; .25; .30; 1' repeatCount='indefinite'/>"
+            } else if (_pixelPackMap.corrupt || _pixelPackMap.noble) {
+                if (_pixelPackMap.corrupt) {
+                    finalSVG = string(
+                        abi.encodePacked(
+                            finalSVG,
+                            defineC(
+                                _pixelPackMap.colors[0],
+                                _pixelPackMap.colors[1],
+                                _pixelPackMap.colors[2]
                             )
-                        );
-                    } else if (_pixelPackMap.corrupt) {
-                        string memory corruption3 = "transparent";
-
-                        if (
-                            readWithBitmap(_pixelPackMap.corruptSchema, i + 128)
-                        ) {
-                            corruption3 = "#000000";
-                        }
-
-                        finalSVG = string(
-                            abi.encodePacked(
-                                finalSVG,
-                                "<animate attributeName='fill' dur='5s' values='",
-                                color,
-                                ";",
-                                corruption1,
-                                ";",
-                                color,
-                                ";",
-                                corruption2,
-                                ";",
-                                corruption3,
-                                ";' ",
-                                "keyTimes='0; 0.9; 0.92; .96; .98' calcMode='discrete' repeatCount='indefinite'/>"
-                            )
-                        );
-                    }
+                        )
+                    );
                 } else if (_pixelPackMap.noble) {
                     finalSVG = string(
                         abi.encodePacked(
                             finalSVG,
-                            "<animate attributeName='fill' dur='10s' values='",
-                            color,
-                            "; ",
-                            color1,
-                            "; ",
-                            color2,
-                            "; ",
-                            color3,
-                            "; ",
-                            color,
-                            "; ",
-                            color,
-                            ";' ",
-                            "keyTimes='0;0.1;0.15;0.2;0.25;1' repeatCount='indefinite'/>"
+                            defineN(
+                                _pixelPackMap.colors[0],
+                                _pixelPackMap.colors[1],
+                                _pixelPackMap.colors[2]
+                            )
                         )
                     );
                 }
-
-                finalSVG = string(abi.encodePacked(finalSVG, "</rect>"));
             } else {
                 finalSVG = string(
                     abi.encodePacked(
                         finalSVG,
-                        "<rect",
-                        " width='",
-                        uintToStr(85),
-                        "' height='",
-                        uintToStr(85),
-                        "' x='",
-                        uintToStr(((85) * (i % 8))),
-                        "' y='",
-                        uintToStr(((85) * (i / 8))),
-                        "' fill='",
-                        color,
-                        "'/>"
+                        defineR(
+                            _pixelPackMap.colors[0],
+                            _pixelPackMap.colors[1],
+                            _pixelPackMap.colors[2]
+                        )
                     )
                 );
+            }
+
+            finalSVG = string(abi.encodePacked(finalSVG, "</defs>"));
+        }
+
+        for (uint256 i = 0; i < 64; i++) {
+            uint256 color = _pixelPackMap.schema[i];
+            string memory x = uintToStr((85) * (i % 8));
+            string memory y = uintToStr((85) * (i / 8));
+
+            if (_pixelPackMap.corrupt && _pixelPackMap.noble) {
+                bool corruption = readWithBitmap(
+                    _pixelPackMap.corruptSchema,
+                    i
+                );
+
+                if (color == 0) {
+                    if (corruption) {
+                        finalSVG = string(
+                            abi.encodePacked(
+                                finalSVG,
+                                "<use x='",
+                                x,
+                                "' y='",
+                                y,
+                                "' href='#g0'/>"
+                            )
+                        );
+                    } else {
+                        finalSVG = string(
+                            abi.encodePacked(
+                                finalSVG,
+                                "<use x='",
+                                x,
+                                "' y='",
+                                y,
+                                "' href='#g1'/>"
+                            )
+                        );
+                    }
+                }
+
+                if (color == 1) {
+                    if (corruption) {
+                        finalSVG = string(
+                            abi.encodePacked(
+                                finalSVG,
+                                "<use x='",
+                                x,
+                                "' y='",
+                                y,
+                                "' href='#g2'/>"
+                            )
+                        );
+                    } else {
+                        finalSVG = string(
+                            abi.encodePacked(
+                                finalSVG,
+                                "<use x='",
+                                x,
+                                "' y='",
+                                y,
+                                "' href='#g3'/>"
+                            )
+                        );
+                    }
+                }
+
+                if (color == 2) {
+                    if (corruption) {
+                        finalSVG = string(
+                            abi.encodePacked(
+                                finalSVG,
+                                "<use x='",
+                                x,
+                                "' y='",
+                                y,
+                                "' href='#g4'/>"
+                            )
+                        );
+                    } else {
+                        finalSVG = string(
+                            abi.encodePacked(
+                                finalSVG,
+                                "<use x='",
+                                x,
+                                "' y='",
+                                y,
+                                "' href='#g5'/>"
+                            )
+                        );
+                    }
+                }
+            }
+
+            if (_pixelPackMap.corrupt && !_pixelPackMap.noble) {
+                bool corruption = readWithBitmap(
+                    _pixelPackMap.corruptSchema,
+                    i
+                );
+
+                if (color == 0) {
+                    if (corruption) {
+                        finalSVG = string(
+                            abi.encodePacked(
+                                finalSVG,
+                                "<use x='",
+                                x,
+                                "' y='",
+                                y,
+                                "' href='#c0'/>"
+                            )
+                        );
+                    } else {
+                        finalSVG = string(
+                            abi.encodePacked(
+                                finalSVG,
+                                "<use x='",
+                                x,
+                                "' y='",
+                                y,
+                                "' href='#c1'/>"
+                            )
+                        );
+                    }
+                }
+
+                if (color == 1) {
+                    if (corruption) {
+                        finalSVG = string(
+                            abi.encodePacked(
+                                finalSVG,
+                                "<use x='",
+                                x,
+                                "' y='",
+                                y,
+                                "' href='#c2'/>"
+                            )
+                        );
+                    } else {
+                        finalSVG = string(
+                            abi.encodePacked(
+                                finalSVG,
+                                "<use x='",
+                                x,
+                                "' y='",
+                                y,
+                                "' href='#c3'/>"
+                            )
+                        );
+                    }
+                }
+
+                if (color == 2) {
+                    if (corruption) {
+                        finalSVG = string(
+                            abi.encodePacked(
+                                finalSVG,
+                                "<use x='",
+                                x,
+                                "' y='",
+                                y,
+                                "' href='#c4'/>"
+                            )
+                        );
+                    } else {
+                        finalSVG = string(
+                            abi.encodePacked(
+                                finalSVG,
+                                "<use x='",
+                                x,
+                                "' y='",
+                                y,
+                                "' href='#c5'/>"
+                            )
+                        );
+                    }
+                }
+            }
+
+            if (_pixelPackMap.noble && !_pixelPackMap.corrupt) {
+                if (color == 0) {
+                    finalSVG = string(
+                        abi.encodePacked(
+                            finalSVG,
+                            "<use x='",
+                            x,
+                            "' y='",
+                            y,
+                            "' href='#n0'/>"
+                        )
+                    );
+                }
+                if (color == 1) {
+                    finalSVG = string(
+                        abi.encodePacked(
+                            finalSVG,
+                            "<use x='",
+                            x,
+                            "' y='",
+                            y,
+                            "' href='#n1'/>"
+                        )
+                    );
+                }
+                if (color == 2) {
+                    finalSVG = string(
+                        abi.encodePacked(
+                            finalSVG,
+                            "<use x='",
+                            x,
+                            "' y='",
+                            y,
+                            "' href='#n2'/>"
+                        )
+                    );
+                }
+            }
+
+            if (!_pixelPackMap.noble || !_pixelPackMap.corrupt) {
+                if (color == 0) {
+                    finalSVG = string(
+                        abi.encodePacked(
+                            finalSVG,
+                            "<use x='",
+                            x,
+                            "' y='",
+                            y,
+                            "' href='#r0'/>"
+                        )
+                    );
+                }
+
+                if (color == 1) {
+                    finalSVG = string(
+                        abi.encodePacked(
+                            finalSVG,
+                            "<use x='",
+                            x,
+                            "' y='",
+                            y,
+                            "' href='#r1'/>"
+                        )
+                    );
+                }
+
+                if (color == 2) {
+                    finalSVG = string(
+                        abi.encodePacked(
+                            finalSVG,
+                            "<use x='",
+                            x,
+                            "' y='",
+                            y,
+                            "' href='#r2'/>"
+                        )
+                    );
+                }
             }
         }
 
         finalSVG = string(abi.encodePacked(finalSVG, "</svg>"));
+    }
+
+    function defineG(
+        string memory _color0,
+        string memory _color1,
+        string memory _color2
+    ) internal pure returns (string memory g) {
+        g = string(
+            abi.encodePacked(
+                "<rect id='g0' width='85' height='85'><animate attributeName='fill' dur='5s' values='",
+                _color0,
+                ";",
+                _color0,
+                ";#000000;",
+                _color1,
+                ";transparent;",
+                _color2,
+                ";",
+                _color0,
+                ";",
+                _color0,
+                "' keyTimes='0; 0.05; .10; .15; .20; .25; .30; 1' calcMode='linear' repeatCount='indefinite'/></rect>"
+            )
+        );
+
+        {
+            g = string(
+                abi.encodePacked(
+                    g,
+                    "<rect id='g1' width='85' height='85'><animate attributeName='fill' dur='5s' values='",
+                    _color0,
+                    ";",
+                    _color0,
+                    ";transparent;",
+                    _color1,
+                    ";#000000;",
+                    _color2,
+                    ";",
+                    _color0,
+                    ";",
+                    _color0,
+                    "' keyTimes='0; 0.05; .10; .15; .20; .25; .30; 1' calcMode='linear' repeatCount='indefinite'/></rect>"
+                )
+            );
+        }
+
+        {
+            g = string(
+                abi.encodePacked(
+                    g,
+                    "<rect id='g2' width='85' height='85'><animate attributeName='fill' dur='5s' values='",
+                    _color1,
+                    ";",
+                    _color0,
+                    ";#000000;",
+                    _color1,
+                    ";transparent;",
+                    _color2,
+                    ";",
+                    _color1,
+                    ";",
+                    _color1,
+                    "' keyTimes='0; 0.05; .10; .15; .20; .25; .30; 1' calcMode='linear' repeatCount='indefinite'/></rect>"
+                )
+            );
+        }
+
+        {
+            g = string(
+                abi.encodePacked(
+                    g,
+                    "<rect id='g3' width='85' height='85'><animate attributeName='fill' dur='5s' values='",
+                    _color1,
+                    ";",
+                    _color0,
+                    ";transparent;",
+                    _color1,
+                    ";#000000;",
+                    _color2,
+                    ";",
+                    _color1,
+                    ";",
+                    _color1,
+                    "' keyTimes='0; 0.05; .10; .15; .20; .25; .30; 1' calcMode='linear' repeatCount='indefinite'/></rect>"
+                )
+            );
+        }
+
+        {
+            g = string(
+                abi.encodePacked(
+                    g,
+                    "<rect id='g4' width='85' height='85'><animate attributeName='fill' dur='5s' values='",
+                    _color2,
+                    ";",
+                    _color0,
+                    ";#000000;",
+                    _color1,
+                    ";transparent;",
+                    _color2,
+                    ";",
+                    _color2,
+                    ";",
+                    _color2,
+                    "' keyTimes='0; 0.05; .10; .15; .20; .25; .30; 1' calcMode='linear' repeatCount='indefinite'/></rect>"
+                )
+            );
+        }
+
+        {
+            g = string(
+                abi.encodePacked(
+                    g,
+                    "<rect id='g5' width='85' height='85'><animate attributeName='fill' dur='5s' values='",
+                    _color2,
+                    ";",
+                    _color0,
+                    ";transparent;",
+                    _color1,
+                    ";#000000;",
+                    _color2,
+                    ";",
+                    _color2,
+                    ";",
+                    _color2,
+                    "' keyTimes='0; 0.05; .10; .15; .20; .25; .30; 1' calcMode='linear' repeatCount='indefinite'/></rect>"
+                )
+            );
+        }
+
+        return g;
+    }
+
+    function defineC(
+        string memory _color0,
+        string memory _color1,
+        string memory _color2
+    ) internal pure returns (string memory) {
+        return
+            string(
+                abi.encodePacked(
+                    "<rect id='c0' width='85' height='85'><animate attributeName='fill' dur='5s' values='",
+                    _color0,
+                    ";#000000;",
+                    _color0,
+                    ";transparent",
+                    "' keyTimes='0; 0.92; .94; .96' calcMode='discrete' repeatCount='indefinite'/></rect>",
+                    "<rect id='c1' width='85' height='85'><animate attributeName='fill' dur='5s' values='",
+                    _color0,
+                    ";transparent;",
+                    _color0,
+                    ";#000000",
+                    "' keyTimes='0; 0.92; .94; .96' calcMode='discrete' repeatCount='indefinite'/></rect>",
+                    "<rect id='c2' width='85' height='85'><animate attributeName='fill' dur='5s' values='",
+                    _color1,
+                    ";#000000;",
+                    _color1,
+                    ";transparent",
+                    "' keyTimes='0; 0.92; .94; .96' calcMode='discrete' repeatCount='indefinite'/></rect>",
+                    "<rect id='c3' width='85' height='85'><animate attributeName='fill' dur='5s' values='",
+                    _color1,
+                    ";transparent;",
+                    _color1,
+                    ";#000000",
+                    "' keyTimes='0; 0.92; .94; .96' calcMode='discrete' repeatCount='indefinite'/></rect>",
+                    "<rect id='c4' width='85' height='85'><animate attributeName='fill' dur='5s' values='",
+                    _color2,
+                    ";#000000;",
+                    _color2,
+                    ";transparent",
+                    "' keyTimes='0; 0.92; .94; .96' calcMode='discrete' repeatCount='indefinite'/></rect>",
+                    "<rect id='c5' width='85' height='85'><animate attributeName='fill' dur='5s' values='",
+                    _color2,
+                    ";transparent;",
+                    _color2,
+                    ";#000000",
+                    "' keyTimes='0; 0.92; .94; .96' calcMode='discrete' repeatCount='indefinite'/></rect>"
+                )
+            );
+    }
+
+    function defineN(
+        string memory _color0,
+        string memory _color1,
+        string memory _color2
+    ) internal pure returns (string memory n) {
+        n = string(
+            abi.encodePacked(
+                "<rect id='n0' width='85' height='85'><animate attributeName='fill' dur='5s' values='",
+                _color0,
+                ";",
+                _color0,
+                ";",
+                _color1,
+                ";",
+                _color2,
+                ";",
+                _color0,
+                ";",
+                _color0,
+                "' keyTimes='0; 0.1; 0.15; 0.2; 0.25; 1' calcMode='linear' repeatCount='indefinite'/></rect>"
+            )
+        );
+
+        {
+            n = string(
+                abi.encodePacked(
+                    n,
+                    "<rect id='n1' width='85' height='85'><animate attributeName='fill' dur='5s' values='",
+                    _color1,
+                    ";",
+                    _color0,
+                    ";",
+                    _color1,
+                    ";",
+                    _color2,
+                    ";",
+                    _color1,
+                    ";",
+                    _color1,
+                    "' keyTimes='0; 0.1; 0.15; 0.2; 0.25; 1' calcMode='linear' repeatCount='indefinite'/></rect>"
+                )
+            );
+        }
+
+        {
+            n = string(
+                abi.encodePacked(
+                    n,
+                    "<rect id='n2' width='85' height='85'><animate attributeName='fill' dur='5s' values='",
+                    _color2,
+                    ";",
+                    _color0,
+                    ";",
+                    _color1,
+                    ";",
+                    _color2,
+                    ";",
+                    _color2,
+                    ";",
+                    _color2,
+                    "' keyTimes='0; 0.1; 0.15; 0.2; 0.25; 1' calcMode='linear' repeatCount='indefinite'/></rect>"
+                )
+            );
+        }
+
+        return n;
+    }
+
+    function defineR(
+        string memory _color0,
+        string memory _color1,
+        string memory _color2
+    ) internal pure returns (string memory) {
+        return
+            string(
+                abi.encodePacked(
+                    "<rect id='r0' width='85' height='85' fill='",
+                    _color0,
+                    "'/>",
+                    "<rect id='r1' width='85' height='85' fill='",
+                    _color1,
+                    "'/>",
+                    "<rect id='r2' width='85' height='85' fill='",
+                    _color2,
+                    "'/>"
+                )
+            );
     }
 
     // You could also just upload the raw SVG and have solildity convert it!

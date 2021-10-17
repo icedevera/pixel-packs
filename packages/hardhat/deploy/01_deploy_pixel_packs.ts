@@ -40,8 +40,8 @@ const deployPixelPacks: DeployFunction = async function ({
       1, // _lightAuraOdds
       1, // _darkStrokeOdds
       1, // _lightStrokeOdds
-      1000, // _corruptOdds
-      1000, // _nobleOdds
+      1, // _corruptOdds
+      1, // _nobleOdds
     ],
   ];
 
