@@ -47,7 +47,9 @@ const createPixelPack: DeployFunction = async function ({
     await vrf_tx.wait(1);
     log("Random number mock completed.");
     log("Finishing NFT Mint...");
-    const finish_tx = await pixelPackFactory.finishMint(tokenId);
+    const finish_tx = await pixelPackFactory.finishMint(tokenId, {
+      gasLimit: 9000000,
+    });
     await finish_tx.wait(1);
     const tokenURI = await pixelPackFactory.tokenURI(tokenId);
     log(`NFT Minting Complete. You may view the tokenURI here: ${tokenURI}`);
